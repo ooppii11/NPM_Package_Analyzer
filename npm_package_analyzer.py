@@ -1,18 +1,78 @@
 import requests
 import openai
+import tarfile
+import os
+import shutil
+
+
+def get_readme_file_github(repo, version, readme_file_name):
+    url = f"https://raw.githubusercontent.com/{repo}/{version}/{readme_file_name}"
+    response = requests.get(url)
+    response.raise_for_status()
+    return response.text
+
+
+def get_readme_file_npm(tarball_url, readme_file_name):
+    tarball_response = requests.get(tarball_url)
+    tarball_response.raise_for_status()
+
+    tarball_path = "./tempDownload/package.tgz"
+    with open(tarball_path, "wb") as tarball_file:
+        tarball_file.write(tarball_response.content)
+        
+    with tarfile.open(tarball_path) as tar:
+        tar.extractall()
+        
+    readme_path = None
+    for root, dirs, files in os.walk("./tempDownload/"):
+        if readme_file_name in files:
+            readme_path = os.path.join(root, readme_file_name)
+            break
+
+    readme_content = None
+    if readme_path:
+        with open(readme_path, "r") as readme_file:
+            readme_content = readme_file.read()
+    else:
+        print("README.md file not found in the package.")
+        
+ 
+    os.remove(tarball_path)
+    shutil.rmtree("./tempDownload/")
+    return readme_content
+
+
+def get_readme_file_name(package_files):
+    for file in package_files:
+        if file.upper() == "README.MD":
+            return file
+    return None
+
 
 def get_readme_file(package_name, version):
     try:
         response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
         response.raise_for_status()
         package_info = response.json()
-        readme_url = package_info.get("readme")
-        if not readme_url:
+        version_files = package_info.get("files")
+        readme_file_name = get_readme_file_name(version_files)
+        
+        if not readme_file_name:
             print(f"There is no README file for package {package_name} at version {version}")
             return None
-        response = requests.get(readme_url)
-        response.raise_for_status()
-        return response.text
+        else:
+            try:
+                github_url = package_info.get("repository").get("url")
+                repo = github_url.split("github.com/")[1].replace(".git", "")
+                if not repo:
+                    raise Exception("Repository URL not found")
+                
+                return get_readme_file_github(repo, version, readme_file_name)
+            
+            except Exception:
+                tarball_url = package_info.get("dist").get("tarball")
+                return get_readme_file_npm(tarball_url, readme_file_name)
+ 
     except requests.exceptions.RequestException as e:
         print(f"Failed to download README file for package {package_name} at version {version}:\n {e}")
         return None
@@ -94,7 +154,7 @@ def compere_readme_versions(package_name, num_of_versions):
     return breaking_changes
         
 def main():
-    OPENAI_API_KEY = 'key_here'
+    OPENAI_API_KEY = 'sk-proj-g3f5Sp5hdPUKJWSUA54PT3BlbkFJJQTMSQc9fn2YivI0ckXa'
     openai.api_key = OPENAI_API_KEY
     package_name = "express"
     num_of_versions = 3
@@ -102,4 +162,7 @@ def main():
     breaking_changes = compere_readme_versions(package_name, num_of_versions)
     for change in breaking_changes:
         print(change)
+
+if __name__ == "__main__":
+    main()
     
