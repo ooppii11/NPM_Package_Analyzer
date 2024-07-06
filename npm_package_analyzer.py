@@ -1,8 +1,10 @@
 import requests
-import openai
+from openai import OpenAI
 import tarfile
 import os
 import shutil
+import google.generativeai as genai
+
 
 
 def get_readme_file_github(repo, version, readme_file_name):
@@ -11,23 +13,34 @@ def get_readme_file_github(repo, version, readme_file_name):
     response.raise_for_status()
     return response.text
 
+def run_on_posebile_readme_file_github(repo, version):
+    for readme_name in ["README.md", "README.MD", "readme.md", "readme.MD", "Readme.md", "Readme.MD"]:
+        try:
+            return get_readme_file_github(repo, version, readme_name)
+        except Exception:
+            continue
+    raise Exception("Failed to download from github")
 
-def get_readme_file_npm(tarball_url, readme_file_name):
+def get_readme_file_npm(tarball_url):
     tarball_response = requests.get(tarball_url)
     tarball_response.raise_for_status()
 
-    tarball_path = "./tempDownload/package.tgz"
+    download_folder = "tempDownload"
+    tarball_path = os.path.join(download_folder, "package.tgz")
+    os.makedirs(download_folder, exist_ok=True)
+
     with open(tarball_path, "wb") as tarball_file:
         tarball_file.write(tarball_response.content)
         
     with tarfile.open(tarball_path) as tar:
-        tar.extractall()
+        tar.extractall(path=download_folder)
         
     readme_path = None
     for root, dirs, files in os.walk("./tempDownload/"):
-        if readme_file_name in files:
-            readme_path = os.path.join(root, readme_file_name)
-            break
+            readme_file_name = get_readme_file_name(files)
+            if readme_file_name:
+                readme_path = os.path.join(root, readme_file_name)
+                break
 
     readme_content = None
     if readme_path:
@@ -48,30 +61,40 @@ def get_readme_file_name(package_files):
             return file
     return None
 
+def extract_data_from_package_json(package_name, version):
+    response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
+    response.raise_for_status()
+    package_info = response.json()
+    return package_info
+
 
 def get_readme_file(package_name, version):
     try:
-        response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
-        response.raise_for_status()
-        package_info = response.json()
-        version_files = package_info.get("files")
-        readme_file_name = get_readme_file_name(version_files)
         
-        if not readme_file_name:
-            print(f"There is no README file for package {package_name} at version {version}")
-            return None
+        package_info = extract_data_from_package_json(package_name, version)
+        version_files = package_info.get("files")
+        
+        if not version_files:
+            readme_file_name = None
         else:
-            try:
-                github_url = package_info.get("repository").get("url")
-                repo = github_url.split("github.com/")[1].replace(".git", "")
-                if not repo:
-                    raise Exception("Repository URL not found")
-                
+            readme_file_name = get_readme_file_name(version_files)
+            
+        try:
+            github_url = package_info.get("repository").get("url")
+            repo = github_url.split("github.com/")[1].replace(".git", "")
+            
+            if not repo:
+                raise Exception("Repository URL not found")
+            
+            if not readme_file_name:
+                return run_on_posebile_readme_file_github(repo, version)
+            else:
                 return get_readme_file_github(repo, version, readme_file_name)
             
-            except Exception:
-                tarball_url = package_info.get("dist").get("tarball")
-                return get_readme_file_npm(tarball_url, readme_file_name)
+        except Exception:
+            tarball_url = package_info.get("dist").get("tarball")
+            return get_readme_file_npm(tarball_url)
+            
  
     except requests.exceptions.RequestException as e:
         print(f"Failed to download README file for package {package_name} at version {version}:\n {e}")
@@ -114,7 +137,7 @@ def feach_readme_files(package_name, num_of_versions):
                 download_readme_file(package_name, version)
 
 
-def compere_readme_breaking_changes(readme1, readme2):
+def compere_readme_breaking_changes_openai(readme1, readme2):
     try:
         prompt = (
             f"Compare the following two READMEs and identify any breaking changes:\n\n"
@@ -122,10 +145,16 @@ def compere_readme_breaking_changes(readme1, readme2):
             f"Current version README:\n{readme2}\n\n"
             f"Breaking changes:"
         )
-        response = openai.Completion.create(
-            engine="davinci",
+
+        client = OpenAI(
+            api_key=os.getenv("OPENAI_API_KEY"),
+            #'sk-proj-g3f5Sp5hdPUKJWSUA54PT3BlbkFJJQTMSQc9fn2YivI0ckXa'
+        )
+
+        response = client.completions.create(
             prompt=prompt,
-            max_tokens=150
+            max_tokens=150,
+            model="gpt-3.5-turbo",
         )
         return response.choices[0].text.strip()
     except Exception as e:
@@ -133,13 +162,30 @@ def compere_readme_breaking_changes(readme1, readme2):
         return 'Error comparing READMEs'
     
 
+def compere_readme_breaking_changes_google(readme1, readme2):
+    try:
+        prompt = (
+            f"Compare the following two READMEs and identify any breaking changes:\n\n"
+            f"Previous version README:\n{readme1}\n\n"
+            f"Current version README:\n{readme2}\n\n"
+            f"Breaking changes:"
+        )
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY")) #'AIzaSyDSj8yU5pz0eceaoW2KqG31n1QPEMiMJss'
+        model = genai.load_model("gemini-1.5-pro")
+        response = model.ask(question=prompt, max_tokens=150)
+        return response
+    except Exception as e:
+        print(f'Error comparing READMEs: {e}')
+        return 'Error comparing READMEs'
+
+
 def compere_readme_files(package_name, version1, version2):
     try:
         with open(f"{package_name}_{version1}_readme.md", "r") as f:
             readme1 = f.read()
         with open(f"{package_name}_{version2}_readme.md", "r") as f:
             readme2 = f.read()
-        return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes(readme1, readme2)}
+        return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_google(readme1, readme2)}
     except FileNotFoundError:
         print(f"README file for package {package_name} at version {version1} or {version2} is missing")
 
@@ -154,9 +200,14 @@ def compere_readme_versions(package_name, num_of_versions):
     return breaking_changes
         
 def main():
-    OPENAI_API_KEY = 'sk-proj-g3f5Sp5hdPUKJWSUA54PT3BlbkFJJQTMSQc9fn2YivI0ckXa'
-    openai.api_key = OPENAI_API_KEY
     package_name = "express"
+    """
+    node-webkit-agent
+    shx
+    json-diff
+    passwordless
+    blessed-contrib
+    """
     num_of_versions = 3
     feach_readme_files(package_name, num_of_versions)
     breaking_changes = compere_readme_versions(package_name, num_of_versions)
@@ -166,3 +217,5 @@ def main():
 if __name__ == "__main__":
     main()
     
+
+
