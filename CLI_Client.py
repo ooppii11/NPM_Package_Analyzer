@@ -5,7 +5,7 @@ import os
 
 def get_user_input():
     package_name = input("Enter the package name: ")
-    num_of_versions = input("Enter num of versions: ")
+    num_of_versions = int(input("Enter num of versions: "))
 
     print("Choose a method to compare the versions: ")
     for i, method in zip(range(len(npm_package_analyzer.compere_method.get_methods())), npm_package_analyzer.compere_method.get_methods()):
