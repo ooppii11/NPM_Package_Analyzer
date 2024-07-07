@@ -190,8 +190,15 @@ def compere_readme_files(package_name, version1, version2):
 
 
 def compere_readme_versions(package_name, num_of_versions):
+    if num_of_versions < 2:
+        print("Number of versions must be at least 2")
+        return None
     versions = get_last_versions(package_name, num_of_versions)
     if versions:
+        if len(versions) < 2:
+            print(f"Package {package_name} has less than 2 versions")
+            return None
+        
         for i in range(len(versions) - 1):
             yield compere_readme_files(package_name, versions[i], versions[i+1])
 
@@ -199,7 +206,6 @@ def compere_readme_versions(package_name, num_of_versions):
 def main():
     package_name = "express"
     """
-    node-webkit-agent
     shx
     json-diff
     passwordless
