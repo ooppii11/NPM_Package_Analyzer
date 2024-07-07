@@ -81,22 +81,6 @@ Here's an example interaction with the CLI client:
 example will be added
 ```
 
-### Functions
-
-- `get_readme_file_github(repo, version, readme_file_name)`: Fetches the README file from GitHub.
-- `run_on_posebile_readme_file_github(repo, version)`: Tries to fetch possible README file names from GitHub.
-- `get_readme_file_npm(tarball_url)`: Downloads and extracts the README file from an npm package tarball.
-- `extract_data_from_package_json(package_name, version)`: Extracts package information from npm registry.
-- `get_readme_file(package_name, version)`: Gets the README file for a specific package and version.
-- `download_readme_file(package_name, version)`: Downloads the README file and saves it locally.
-- `get_last_versions(package_name, num_of_versions)`: Retrieves the latest versions of a package from npm.
-- `already_downloaded(package_name, version)`: Checks if a README file has already been downloaded.
-- `feach_readme_files(package_name, num_of_versions)`: Fetches README files for the latest versions of a package.
-- `compere_readme_breaking_changes_openai(readme1, readme2)`: Compares two README files using OpenAI.
-- `compere_readme_breaking_changes_google(readme1, readme2)`: Compares two README files using Google's Generative AI.
-- `compere_readme_files(package_name, version1, version2)`: Compares README files for two versions of a package.
-- `compere_readme_versions(package_name, num_of_versions)`: Compares README files for multiple versions of a package.
-
 ## Future Enhancements
 
 - **Documentation**: Add comprehensive documentation for each function and class.
