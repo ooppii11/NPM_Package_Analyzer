@@ -148,7 +148,6 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
 
         client = OpenAI(
             api_key=os.getenv("OPENAI_API_KEY"),
-            #'sk-proj-g3f5Sp5hdPUKJWSUA54PT3BlbkFJJQTMSQc9fn2YivI0ckXa'
         )
 
         response = client.completions.create(
@@ -169,11 +168,11 @@ def compere_readme_breaking_changes_google(readme1, readme2):
             f"Previous version README:\n{readme1}\n\n"
             f"Current version README:\n{readme2}\n\n"
             f"Breaking changes:"
-        )
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY")) #'AIzaSyDSj8yU5pz0eceaoW2KqG31n1QPEMiMJss'
-        model = genai.load_model("gemini-1.5-pro")
-        response = model.ask(question=prompt, max_tokens=150)
-        return response
+        )       
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        model = genai.get_model("models/text-bison-001")
+        response = genai.generate_text(prompt=prompt, model=model)
+        return response.result
     except Exception as e:
         print(f'Error comparing READMEs: {e}')
         return 'Error comparing READMEs'
@@ -192,12 +191,10 @@ def compere_readme_files(package_name, version1, version2):
 
 def compere_readme_versions(package_name, num_of_versions):
     versions = get_last_versions(package_name, num_of_versions)
-    breaking_changes = []
     if versions:
         for i in range(len(versions) - 1):
-            breaking_changes.append(compere_readme_files(package_name, versions[i], versions[i+1]))
+            yield compere_readme_files(package_name, versions[i], versions[i+1])
 
-    return breaking_changes
         
 def main():
     package_name = "express"
@@ -208,11 +205,12 @@ def main():
     passwordless
     blessed-contrib
     """
-    num_of_versions = 3
+    num_of_versions = 5
     feach_readme_files(package_name, num_of_versions)
-    breaking_changes = compere_readme_versions(package_name, num_of_versions)
-    for change in breaking_changes:
-        print(change)
+    for change in compere_readme_versions(package_name, num_of_versions):
+        
+        print(f"from: {change['from']}\nto: {change['to']}")
+        print(change["changes"], end="\n\n")
 
 if __name__ == "__main__":
     main()
