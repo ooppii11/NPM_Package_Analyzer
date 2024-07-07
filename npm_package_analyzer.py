@@ -161,13 +161,36 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
         client = OpenAI(
             api_key=os.getenv(f"{compere_method.OPENAI.upper()}_API_KEY"),
         )
-
-        response = client.completions.create(
-            prompt=prompt,
-            max_tokens=150,
-            model="gpt-3.5-turbo",
+        model = "gpt-3.5-turbo"
+        changes = {}
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any breaking changes."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
         )
-        return response.choices[0].text.strip()
+        changes["breaking_changes"] = response.choices[0].message.content
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any updates."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
+        )
+        changes["updates"] = response.choices[0].message.content
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
+        )
+        changes["deprecations"] = response.choices[0].message.content
+        return changes
     except Exception as e:
         print(f'Error comparing READMEs: {e}')
         return 'Error comparing READMEs'
@@ -222,13 +245,10 @@ def main():
     package_name = "express"
     """
     shx
-    json-diff
-    passwordless
-    blessed-contrib
     """
     num_of_versions = 5
     feach_readme_files(package_name, num_of_versions)
-    for change in compere_readme_versions(package_name, num_of_versions, compere_method.GOOGLE):
+    for change in compere_readme_versions(package_name, num_of_versions, compere_method.OPENAI):
         
         print(f"from: {change['from']}\nto: {change['to']}")
         print(change["changes"], end="\n\n")
