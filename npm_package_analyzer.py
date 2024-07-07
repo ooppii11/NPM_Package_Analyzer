@@ -5,7 +5,18 @@ import os
 import shutil
 import google.generativeai as genai
 
+class compere_method:
+    OPENAI = "openai"
+    GOOGLE = "google"
 
+    def __str__(self):
+        return "compere_method"
+    
+    def __repr__(self):
+        return "compere_method"
+    
+    def get_methods(self):
+        return [self.OPENAI, self.GOOGLE]
 
 def get_readme_file_github(repo, version, readme_file_name):
     url = f"https://raw.githubusercontent.com/{repo}/{version}/{readme_file_name}"
@@ -147,7 +158,7 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
         )
 
         client = OpenAI(
-            api_key=os.getenv("OPENAI_API_KEY"),
+            api_key=os.getenv(f"{compere_method.OPENAI.upper()}_API_KEY"),
         )
 
         response = client.completions.create(
@@ -169,7 +180,7 @@ def compere_readme_breaking_changes_google(readme1, readme2):
             f"Current version README:\n{readme2}\n\n"
             f"Breaking changes:"
         )       
-        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        genai.configure(api_key=os.getenv(f"{compere_method.GOOGLE.upper()}_API_KEY"))
         model = genai.get_model("models/text-bison-001")
         response = genai.generate_text(prompt=prompt, model=model)
         return response.result
@@ -178,18 +189,21 @@ def compere_readme_breaking_changes_google(readme1, readme2):
         return 'Error comparing READMEs'
 
 
-def compere_readme_files(package_name, version1, version2):
+def compere_readme_files(package_name, version1, version2, method):
     try:
         with open(f"{package_name}_{version1}_readme.md", "r") as f:
             readme1 = f.read()
         with open(f"{package_name}_{version2}_readme.md", "r") as f:
             readme2 = f.read()
-        return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_google(readme1, readme2)}
+        if method == compere_method.OPENAI:
+            return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_openai(readme1, readme2)}
+        elif method == compere_method.GOOGLE:
+            return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_google(readme1, readme2)}
     except FileNotFoundError:
         print(f"README file for package {package_name} at version {version1} or {version2} is missing")
 
 
-def compere_readme_versions(package_name, num_of_versions):
+def compere_readme_versions(package_name, num_of_versions, method):
     if num_of_versions < 2:
         print("Number of versions must be at least 2")
         return None
@@ -200,7 +214,7 @@ def compere_readme_versions(package_name, num_of_versions):
             return None
         
         for i in range(len(versions) - 1):
-            yield compere_readme_files(package_name, versions[i], versions[i+1])
+            yield compere_readme_files(package_name, versions[i], versions[i+1], method)
 
         
 def main():
@@ -213,7 +227,7 @@ def main():
     """
     num_of_versions = 5
     feach_readme_files(package_name, num_of_versions)
-    for change in compere_readme_versions(package_name, num_of_versions):
+    for change in compere_readme_versions(package_name, num_of_versions, compere_method.GOOGLE):
         
         print(f"from: {change['from']}\nto: {change['to']}")
         print(change["changes"], end="\n\n")
