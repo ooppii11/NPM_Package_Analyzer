@@ -4,7 +4,7 @@ Sure, here's the updated README with the relevant information about `CLI_Client.
 
 ## Overview
 
-This project provides a set of tools to download and compare README files of npm packages. The primary goal is to fetch the README files for different versions of a package and compare them to identify any breaking changes.
+The NPM Package Analyzer is a Python-based tool designed to compare README files of different versions of NPM packages. It aims to identify changes, especially breaking changes, between versions by leveraging AI-based comparison methods
 
 ## Features
 
