@@ -79,7 +79,6 @@ example will be added
 
 ## Future Enhancements
 
-- **Documentation**: Add comprehensive documentation for each function and class.
 - **Web Application**: Develop a simple web application using Flask to provide a UI for fetching and comparing README files.
 
 ---
