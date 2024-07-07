@@ -1,3 +1,7 @@
+Sure, here's the updated README with the relevant information about `CLI_Client.py` added:
+
+---
+
 ## Overview
 
 This project provides a set of tools to download and compare README files of npm packages. The primary goal is to fetch the README files for different versions of a package and compare them to identify any breaking changes.
@@ -46,6 +50,37 @@ This project provides a set of tools to download and compare README files of npm
 
    The `main()` function in `main.py` is an example that fetches README files for the `express` package and compares the latest versions.
 
+### CLI Client
+
+The `CLI_Client.py` script provides a command-line interface to interact with the npm package README analyzer. This script allows users to fetch and compare README files for different versions of an npm package interactively.
+
+#### Usage
+
+1. **Set up API Keys**:
+   Ensure that your environment variables for the required API keys are set, or be prepared to enter them when prompted.
+
+2. **Run the CLI Client**:
+   Execute the script using Python:
+
+   ```bash
+   python CLI_Client.py
+   ```
+
+3. **Provide Input**:
+   - **Package Name**: Enter the name of the npm package you want to analyze.
+   - **Number of Versions**: Enter the number of recent versions you want to compare.
+   - **Comparison Method**: Choose a method for comparing the README files from the options provided.
+
+   If the chosen comparison method requires an API key and it's not already set in the environment variables, you'll be prompted to enter it.
+
+#### Example
+
+Here's an example interaction with the CLI client:
+
+```bash
+example will be added
+```
+
 ### Functions
 
 - `get_readme_file_github(repo, version, readme_file_name)`: Fetches the README file from GitHub.
@@ -66,3 +101,5 @@ This project provides a set of tools to download and compare README files of npm
 
 - **Documentation**: Add comprehensive documentation for each function and class.
 - **Web Application**: Develop a simple web application using Flask to provide a UI for fetching and comparing README files.
+
+---
