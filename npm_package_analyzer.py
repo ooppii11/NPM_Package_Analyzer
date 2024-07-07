@@ -15,8 +15,9 @@ class compere_method:
     def __repr__(self):
         return "compere_method"
     
-    def get_methods(self):
-        return [self.OPENAI, self.GOOGLE]
+    @staticmethod
+    def get_methods():
+        return [compere_method.OPENAI, compere_method.GOOGLE]
 
 def get_readme_file_github(repo, version, readme_file_name):
     url = f"https://raw.githubusercontent.com/{repo}/{version}/{readme_file_name}"
