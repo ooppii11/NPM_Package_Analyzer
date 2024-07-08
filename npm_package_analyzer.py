@@ -163,7 +163,7 @@ def openai_call(full_msgs, model, max_tokens):
 def compere_readme_breaking_changes_openai(readme1, readme2):
     try:
         prompt = (
-            f"Compare the following two READMEs and identify any breaking changes:\n\n"
+            f"Compare the following two READMEs and identify the appropriate changes:\n\n"
             f"Previous version README:\n{readme1}\n\n"
             f"Current version README:\n{readme2}\n\n"
             f"Breaking changes:"
@@ -186,7 +186,7 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
             {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
         changes["deprecations"] = openai_call(full_msgs, model, 150)
-        
+
         return changes
     except Exception as e:
         print(f'Error comparing READMEs: {e}')
