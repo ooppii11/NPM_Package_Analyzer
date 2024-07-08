@@ -148,6 +148,17 @@ def feach_readme_files(package_name, num_of_versions):
             if not already_downloaded(package_name, version):
                 download_readme_file(package_name, version)
 
+def openai_call(full_msgs, model, max_tokens):
+    client = OpenAI(
+        api_key=os.getenv(f"{compere_method.OPENAI.upper()}_API_KEY"),
+    )
+    response = client.chat.completions.create(
+        model=model,
+        messages=full_msgs,
+        max_tokens=max_tokens
+    )
+    return response.choices[0].message.content
+
 
 def compere_readme_breaking_changes_openai(readme1, readme2):
     try:
@@ -158,38 +169,24 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
             f"Breaking changes:"
         )
 
-        client = OpenAI(
-            api_key=os.getenv(f"{compere_method.OPENAI.upper()}_API_KEY"),
-        )
         model = "gpt-3.5-turbo"
         changes = {}
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any breaking changes."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150
-        )
-        changes["breaking_changes"] = response.choices[0].message.content
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any updates."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150
-        )
-        changes["updates"] = response.choices[0].message.content
-        response = client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150
-        )
-        changes["deprecations"] = response.choices[0].message.content
+
+        full_msgs = [
+            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any breaking changes."}, 
+            {"role": "user", "content": prompt}]
+        changes["breaking_changes"] = openai_call(full_msgs, model, 150)
+
+        full_msgs = [
+            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any updates."}, 
+            {"role": "user", "content": prompt}]
+        changes["updates"] = openai_call(full_msgs, model, 150)
+
+        full_msgs = [
+            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."}, 
+            {"role": "user", "content": prompt}]
+        changes["deprecations"] = openai_call(full_msgs, model, 150)
+        
         return changes
     except Exception as e:
         print(f'Error comparing READMEs: {e}')
