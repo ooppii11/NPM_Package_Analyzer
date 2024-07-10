@@ -19,21 +19,35 @@ class compere_method:
     def get_methods():
         return [compere_method.OPENAI, compere_method.GOOGLE]
 
-def get_readme_file_github(repo, version, readme_file_name):
-    url = f"https://raw.githubusercontent.com/{repo}/{version}/{readme_file_name}"
+
+
+def get_file_github(repo, version, file_name):
+    url = f"https://raw.githubusercontent.com/{repo}/{version}/{file_name}"
     response = requests.get(url)
     response.raise_for_status()
     return response.text
 
-def run_on_posebile_readme_file_github(repo, version):
-    for readme_name in ["README.md", "README.MD", "readme.md", "readme.MD", "Readme.md", "Readme.MD"]:
+def generate_possible_file_names(file_name):
+    name, extension = file_name.rsplit('.', 1) if '.' in file_name else (file_name, '')
+    name_cases = {name.lower(), name.upper(), name.capitalize()}
+    extension_cases = {extension.lower(), extension.upper()} if extension else {''}
+
+    for name_case in name_cases:
+        for extension_case in extension_cases:
+            yield f"{name_case}.{extension_case}" if extension_case else name_case
+    
+
+def run_on_posebile_file_names_github(repo, version, file_name):
+    for readme_name in generate_possible_file_names(file_name):
         try:
-            return get_readme_file_github(repo, version, readme_name)
+            return get_file_github(repo, version, readme_name)
         except Exception:
             continue
     raise Exception("Failed to download from github")
 
-def get_readme_file_npm(tarball_url):
+
+
+def get_file_npm(tarball_url, file_name):
     tarball_response = requests.get(tarball_url)
     tarball_response.raise_for_status()
 
@@ -49,7 +63,8 @@ def get_readme_file_npm(tarball_url):
         
     readme_path = None
     for root, dirs, files in os.walk("./tempDownload/"):
-            readme_file_name = get_readme_file_name(files)
+            
+            readme_file_name = get_file_name(files, file_name)
             if readme_file_name:
                 readme_path = os.path.join(root, readme_file_name)
                 break
@@ -67,9 +82,9 @@ def get_readme_file_npm(tarball_url):
     return readme_content
 
 
-def get_readme_file_name(package_files):
+def get_file_name(package_files, file_name):
     for file in package_files:
-        if file.upper() == "README.MD":
+        if file.upper() == file_name.upper():
             return file
     return None
 
@@ -80,7 +95,7 @@ def extract_data_from_package_json(package_name, version):
     return package_info
 
 
-def get_readme_file(package_name, version):
+def get_file(package_name, version, file_name):
     try:
         
         package_info = extract_data_from_package_json(package_name, version)
@@ -89,33 +104,33 @@ def get_readme_file(package_name, version):
         if not version_files:
             readme_file_name = None
         else:
-            readme_file_name = get_readme_file_name(version_files)
+            readme_file_name = get_file_name(version_files, file_name)
             
         try:
             github_url = package_info.get("repository").get("url")
             repo = github_url.split("github.com/")[1].replace(".git", "")
-            
+
             if not repo:
                 raise Exception("Repository URL not found")
             
             if not readme_file_name:
-                return run_on_posebile_readme_file_github(repo, version)
+                return run_on_posebile_file_names_github(repo, version, file_name)
             else:
-                return get_readme_file_github(repo, version, readme_file_name)
+                return get_file_github(repo, version, readme_file_name)
             
         except Exception:
             tarball_url = package_info.get("dist").get("tarball")
-            return get_readme_file_npm(tarball_url)
+            return get_file_npm(tarball_url, "README.md")
             
  
     except requests.exceptions.RequestException as e:
         print(f"Failed to download README file for package {package_name} at version {version}:\n {e}")
         return None
     
-def download_readme_file(package_name, version):
-    readme = get_readme_file(package_name, version)
+def download_file(package_name, version, file_name):
+    readme = get_file(package_name, version, file_name)
     if readme:
-        with open(f"{package_name}_{version}_readme.md", "w") as f:
+        with open(f"{package_name}_{version}_{file_name}", "w") as f:
             f.write(readme)
         print(f"README file for package {package_name} downloaded successfully")
 
@@ -134,19 +149,19 @@ def get_last_versions(package_name, num_of_versions):
         print(f"Failed to get versions for package {package_name}:\n {e}")
         return None
     
-def already_downloaded(package_name, version):
+def already_downloaded(package_name, version, file_name):
     try:
-        with open(f"{package_name}_{version}_readme.md", "r"):
+        with open(f"{package_name}_{version}_{file_name}", "r"):
             return True
     except FileNotFoundError:
         return False
 
-def feach_readme_files(package_name, num_of_versions):
+def feach_files_from_last_version(package_name, num_of_versions, file_name):
     versions = get_last_versions(package_name, num_of_versions)
     if versions:
         for version in versions:
-            if not already_downloaded(package_name, version):
-                download_readme_file(package_name, version)
+            if not already_downloaded(package_name, version, file_name):
+                download_file(package_name, version, file_name)
 
 def openai_call(full_msgs, model, max_tokens):
     client = OpenAI(
@@ -170,24 +185,48 @@ def compere_readme_breaking_changes_openai(readme1, readme2):
         )
 
         model = "gpt-3.5-turbo"
-        changes = {}
-
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any breaking changes."}, 
             {"role": "user", "content": prompt}]
-        changes["breaking_changes"] = openai_call(full_msgs, model, 150)
 
+
+        return openai_call(full_msgs, model, 150)
+    except Exception as e:
+        print(f'Error comparing READMEs: {e}')
+        return 'Error comparing READMEs'
+
+def compere_readme_updates_openai(readme1, readme2):
+    try:
+        prompt = (
+            f"Compare the following two READMEs and identify any updates:\n\n"
+            f"Previous version README:\n{readme1}\n\n"
+            f"Current version README:\n{readme2}\n\n"
+            f"Updates:"
+        )
+
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any updates."}, 
             {"role": "user", "content": prompt}]
-        changes["updates"] = openai_call(full_msgs, model, 150)
+        return openai_call(full_msgs, model, 150)
+    except Exception as e:
+        print(f'Error comparing READMEs: {e}')
+        return 'Error comparing READMEs'
 
+def compere_readme_deprecations_openai(readme1, readme2):
+    try:
+        prompt = (
+            f"Compare the following two READMEs and identify any deprecations:\n\n"
+            f"Previous version README:\n{readme1}\n\n"
+            f"Current version README:\n{readme2}\n\n"
+            f"Deprecations:"
+        )
+
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
-        changes["deprecations"] = openai_call(full_msgs, model, 150)
-
-        return changes
+        return openai_call(full_msgs, model, 150)
     except Exception as e:
         print(f'Error comparing READMEs: {e}')
         return 'Error comparing READMEs'
@@ -224,7 +263,7 @@ def compere_readme_files(package_name, version1, version2, method):
         print(f"README file for package {package_name} at version {version1} or {version2} is missing")
 
 
-def compere_readme_versions(package_name, num_of_versions, method):
+def compere_readme_versions_from_last_version(package_name, num_of_versions, method):
     if num_of_versions < 2:
         print("Number of versions must be at least 2")
         return None
@@ -244,8 +283,8 @@ def main():
     shx
     """
     num_of_versions = 5
-    feach_readme_files(package_name, num_of_versions)
-    for change in compere_readme_versions(package_name, num_of_versions, compere_method.OPENAI):
+    feach_files_from_last_version(package_name, num_of_versions, "readme.md")
+    for change in compere_readme_versions_from_last_version(package_name, num_of_versions, compere_method.OPENAI):
         
         print(f"from: {change['from']}\nto: {change['to']}")
         print(change["changes"], end="\n\n")
