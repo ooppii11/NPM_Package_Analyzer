@@ -175,69 +175,69 @@ def openai_call(full_msgs, model, max_tokens):
     return response.choices[0].message.content
 
 
-def compere_readme_breaking_changes_openai(readme1, readme2):
+def compere_md_files_breaking_changes_openai(file1, file2):
     try:
         prompt = (
-            f"Compare the following two READMEs and identify the appropriate changes:\n\n"
-            f"Previous version README:\n{readme1}\n\n"
-            f"Current version README:\n{readme2}\n\n"
+            f"Compare the following two files and identify the breaking changes:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
             f"Breaking changes:"
         )
 
         model = "gpt-3.5-turbo"
         full_msgs = [
-            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any breaking changes."}, 
+            {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any breaking changes."}, 
             {"role": "user", "content": prompt}]
 
 
         return openai_call(full_msgs, model, 150)
     except Exception as e:
-        print(f'Error comparing READMEs: {e}')
-        return 'Error comparing READMEs'
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
 
-def compere_readme_updates_openai(readme1, readme2):
+def compere_md_files_updates_openai(file1, file2):
     try:
         prompt = (
-            f"Compare the following two READMEs and identify any updates:\n\n"
-            f"Previous version README:\n{readme1}\n\n"
-            f"Current version README:\n{readme2}\n\n"
+            f"Compare the following two files and identify any updates:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
             f"Updates:"
         )
 
         model = "gpt-3.5-turbo"
         full_msgs = [
-            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any updates."}, 
+            {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any updates."}, 
             {"role": "user", "content": prompt}]
         return openai_call(full_msgs, model, 150)
     except Exception as e:
-        print(f'Error comparing READMEs: {e}')
-        return 'Error comparing READMEs'
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
 
-def compere_readme_deprecations_openai(readme1, readme2):
+def compere_md_files_deprecations_openai(file1, file2):
     try:
         prompt = (
-            f"Compare the following two READMEs and identify any deprecations:\n\n"
-            f"Previous version README:\n{readme1}\n\n"
-            f"Current version README:\n{readme2}\n\n"
+            f"Compare the following two files and identify any deprecations:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
             f"Deprecations:"
         )
 
         model = "gpt-3.5-turbo"
         full_msgs = [
-            {"role": "system", "content": "Given the following data, your job is to compare the two READMEs and identify any deprecations."}, 
+            {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
         return openai_call(full_msgs, model, 150)
     except Exception as e:
-        print(f'Error comparing READMEs: {e}')
-        return 'Error comparing READMEs'
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
     
 
-def compere_readme_breaking_changes_google(readme1, readme2):
+def compere_md_files_breaking_changes_google(file1, file2):
     try:
         prompt = (
-            f"Compare the following two READMEs and identify any breaking changes:\n\n"
-            f"Previous version README:\n{readme1}\n\n"
-            f"Current version README:\n{readme2}\n\n"
+            f"Compare the following two files and identify any breaking changes:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
             f"Breaking changes:"
         )       
         genai.configure(api_key=os.getenv(f"{compere_method.GOOGLE.upper()}_API_KEY"))
@@ -245,20 +245,26 @@ def compere_readme_breaking_changes_google(readme1, readme2):
         response = genai.generate_text(prompt=prompt, model=model)
         return response.result
     except Exception as e:
-        print(f'Error comparing READMEs: {e}')
-        return 'Error comparing READMEs'
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
 
-
-def compere_readme_files(package_name, version1, version2, method):
+def read_md_files_from_disk(package_name, version1, version2, file_name):
     try:
-        with open(f"{package_name}_{version1}_readme.md", "r") as f:
-            readme1 = f.read()
-        with open(f"{package_name}_{version2}_readme.md", "r") as f:
-            readme2 = f.read()
+        with open(f"{package_name}_{version1}_{file_name}.md", "r") as f:
+            file1 = f.read()
+        with open(f"{package_name}_{version2}_{file_name}.md", "r") as f:
+            file2 = f.read()
+        return file1, file2
+    except FileNotFoundError:
+        print(f"README file for package {package_name} at version {version1} or {version2} is missing")
+
+def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
+    try:
+        file1, file2 = read_md_files_from_disk(package_name, version1, version2, file_name)
         if method == compere_method.OPENAI:
-            return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_openai(readme1, readme2)}
+            return {"from" : version1, "to" : version2, "changes" : compere_md_files_breaking_changes_openai(file1, file2)}
         elif method == compere_method.GOOGLE:
-            return {"from" : version1, "to" : version2, "changes" : compere_readme_breaking_changes_google(readme1, readme2)}
+            return {"from" : version1, "to" : version2, "changes" : compere_md_files_breaking_changes_google(file1, file2)}
     except FileNotFoundError:
         print(f"README file for package {package_name} at version {version1} or {version2} is missing")
 
@@ -274,7 +280,7 @@ def compere_readme_versions_from_last_version(package_name, num_of_versions, met
             return None
         
         for i in range(len(versions) - 1):
-            yield compere_readme_files(package_name, versions[i], versions[i+1], method)
+            yield compere_files_for_breaking_changes(package_name, versions[i], versions[i+1], "readme", method)
 
         
 def main():
@@ -288,6 +294,8 @@ def main():
         
         print(f"from: {change['from']}\nto: {change['to']}")
         print(change["changes"], end="\n\n")
+    
+    
 
 if __name__ == "__main__":
     main()
