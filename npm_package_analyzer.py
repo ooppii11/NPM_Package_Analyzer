@@ -21,6 +21,7 @@ class compere_method:
     def get_methods():
         return [compere_method.OPENAI, compere_method.GOOGLE]
 
+
 def get_tag_name(repo, version):
     try:
         tags_url = f"https://github.com/{repo}/tags"
@@ -37,6 +38,7 @@ def get_tag_name(repo, version):
         return None
     except Exception:
         return None
+
 
 def get_file_github(repo, version, file_name):
     tag = get_tag_name(repo, version)
@@ -66,7 +68,6 @@ def run_on_posebile_file_names_github(repo, version, file_name):
         except Exception:
             continue
     raise Exception("Failed to download from github")
-
 
 
 def get_file_npm(tarball_url, file_name):
@@ -110,6 +111,7 @@ def get_file_name(package_files, file_name):
             return file
     return None
 
+
 def extract_data_from_package_json(package_name, version):
     response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
     response.raise_for_status()
@@ -148,7 +150,8 @@ def get_file(package_name, version, file_name):
     except requests.exceptions.RequestException as e:
         print(f"Failed to download {file_name} for package {package_name} at version {version}:\n {e}")
         return None
-    
+
+
 def download_file(package_name, version, file_name):
     readme = get_file(package_name, version, file_name)
     cwd = os.getcwd()
@@ -180,7 +183,26 @@ def get_last_versions(package_name, num_of_versions):
     except requests.exceptions.RequestException as e:
         print(f"Failed to get versions for package {package_name}:\n {e}")
         return None
-    
+
+
+def get_adjacent_versions(package_name, version):
+    try:
+        response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
+        response.raise_for_status()
+        package_info = response.json()
+        versions = list(package_info.get("versions").keys())
+        version_index = versions.index(version)
+        if version_index == 0:
+            return None, versions[version_index + 1]
+        elif version_index == len(versions) - 1:
+            return versions[version_index - 1], None
+        else:
+            return versions[version_index - 1], versions[version_index + 1]
+    except requests.exceptions.RequestException as e:
+        print(f"Failed to get versions for package {package_name}:\n {e}")
+        return None, None
+
+
 def already_downloaded(package_name, version, file_name):
     try:
         with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r"):
@@ -194,7 +216,12 @@ def feach_files_from_last_version(package_name, num_of_versions, file_name):
         for version in versions:
             if not already_downloaded(package_name, version, file_name):
                 download_file(package_name, version, file_name)
-                
+
+
+def feach_files_for_specific_version(package_name, versions, file_name):
+    for version in versions:
+        if not already_downloaded(package_name, version, file_name):
+            download_file(package_name, version, file_name)
 
 def openai_call(full_msgs, model, max_tokens):
     client = OpenAI(
@@ -207,6 +234,12 @@ def openai_call(full_msgs, model, max_tokens):
     )
     return response.choices[0].message.content
 
+
+def google_call(prompt, model):
+    genai.configure(api_key=os.getenv(f"{compere_method.GOOGLE.upper()}_API_KEY"))
+    model = genai.get_model(model)
+    response = genai.generate_text(prompt=prompt, model=model)
+    return response.result
 
 def compere_md_files_breaking_changes_openai(file1, file2):
     try:
@@ -268,33 +301,64 @@ def compere_md_files_deprecations_openai(file1, file2):
 def compere_md_files_breaking_changes_google(file1, file2):
     try:
         prompt = (
-            f"Compare the following two files and identify any breaking changes:\n\n"
+            f"Compare the following two files and identify the breaking changes:\n\n"
             f"Previous version:\n{file1}\n\n"
             f"Current version:\n{file2}\n\n"
             f"Breaking changes:"
-        )       
-        genai.configure(api_key=os.getenv(f"{compere_method.GOOGLE.upper()}_API_KEY"))
-        model = genai.get_model("models/text-bison-001")
-        response = genai.generate_text(prompt=prompt, model=model)
-        return response.result
+        )
+
+        model = "models/text-bison-001"
+        return google_call(prompt, model)
     except Exception as e:
         print(f'Error comparing files: {e}')
         return 'Error comparing files'
 
-def read_md_files_from_disk(package_name, version1, version2, file_name):
-    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version1}_{file_name}", "r") as f:
-        file1 = f.read()
-    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version2}_{file_name}", "r") as f:
-        file2 = f.read()
-    return file1, file2
+
+def compere_md_files_updates_google(file1, file2):
+    try:
+        prompt = (
+            f"Compare the following two files and identify any updates:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
+            f"Updates:"
+        )
+
+        model = "models/text-bison-001"
+        return google_call(prompt, model)
+    except Exception as e:
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
+
+
+def compere_md_files_deprecations_google(file1, file2):
+    try:
+        prompt = (
+            f"Compare the following two files and identify any deprecations:\n\n"
+            f"Previous version:\n{file1}\n\n"
+            f"Current version:\n{file2}\n\n"
+            f"Deprecations:"
+        )
+
+        model = "models/text-bison-001"
+        return google_call(prompt, model)
+    except Exception as e:
+        print(f'Error comparing files: {e}')
+        return 'Error comparing files'
+
+
+def read_md_file_from_disk(package_name, version, file_name):
+    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r") as f:
+        file = f.read()
+    return file
+
 
 def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
     try:
-        file1, file2 = read_md_files_from_disk(package_name, version1, version2, file_name)
+        file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
         if method == compere_method.OPENAI:
-            return {"from" : version1, "to" : version2, "changes" : compere_md_files_breaking_changes_openai(file1, file2)}
+            return {"from" : version1, "to" : version2, "breaking changes" : compere_md_files_breaking_changes_openai(file1, file2)}
         elif method == compere_method.GOOGLE:
-            return {"from" : version1, "to" : version2, "changes" : compere_md_files_breaking_changes_google(file1, file2)}
+            return {"from" : version1, "to" : version2, "breaking changes" : compere_md_files_breaking_changes_google(file1, file2)}
     except FileNotFoundError:
         print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
 
@@ -312,25 +376,89 @@ def compere_md_files_versions_from_last_version(package_name, num_of_versions, f
         for i in range(len(versions) - 1):
             yield compere_files_for_breaking_changes(package_name, versions[i], versions[i+1], file_name, method)
 
-def main():
-    package_name = "react"
-    """
-    express
-    shx
-    """
 
-    num_of_versions = 5
+def compere_md_files_for_breaking_changes_specific_version(package_name, versions, file_name, method):
+    try:
+        previes_version = read_md_file_from_disk(package_name, versions[0], file_name)
+        current_version = read_md_file_from_disk(package_name, versions[1], file_name)
+        next_version = read_md_file_from_disk(package_name, versions[2], file_name)
+        if method == compere_method.OPENAI:
+            return [
+                {
+                    "from" : versions[0], 
+                    "to" : versions[1], 
+                    "updates" : compere_md_files_updates_openai(previes_version, current_version), 
+                    "deprecations" : compere_md_files_deprecations_openai(previes_version, current_version), 
+                    "breaking changes" : compere_md_files_breaking_changes_openai(previes_version, current_version)
+                }, 
+                {
+                    "from" : versions[1],
+                    "to" : versions[2],
+                    "updates" : compere_md_files_updates_openai(current_version, next_version),
+                    "deprecations" : compere_md_files_deprecations_openai(current_version, next_version),
+                    "breaking changes" : compere_md_files_breaking_changes_openai(current_version, next_version)
+                }]
+        elif method == compere_method.GOOGLE:
+            return [
+                {
+                    "from" : versions[0],
+                    "to" : versions[1],
+                    "updates" : compere_md_files_updates_google(previes_version, current_version),
+                    "deprecations" : compere_md_files_deprecations_google(previes_version, current_version),
+                    "breaking changes" : compere_md_files_breaking_changes_google(previes_version, current_version)
+                },
+                {
+                    "from" : versions[1],
+                    "to" : versions[2],
+                    "updates" : compere_md_files_updates_google(current_version, next_version),
+                    "deprecations" : compere_md_files_deprecations_google(current_version, next_version),
+                    "breaking changes" : compere_md_files_breaking_changes_google(current_version, next_version)
+                }]
+
+    except FileNotFoundError:
+        print(f"{file_name} file for package {package_name} at version {versions[0]} or {versions[1]} or {versions[2]} is missing")
+
+
+def from_last_version(package_name, num_of_versions):
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", compere_method.OPENAI):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["changes"], end="\n\n")
-    
+            print(change["breaking changes"], end="\n\n")
+
     feach_files_from_last_version(package_name, num_of_versions, "chnagelog.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog.md", compere_method.GOOGLE):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["changes"], end="\n\n")
+            print(change["breaking changes"], end="\n\n")
+ 
+
+def specific_version(package_name, version):
+    previes_version, next_version = get_adjacent_versions(package_name, version)
+    versions = [previes_version, version, next_version]
+    feach_files_for_specific_version(package_name, versions, "readme.md")
+    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", compere_method.OPENAI):
+        if change:
+            print(f"from: {change['from']}\nto: {change['to']}")
+            print(change["breaking changes"], end="\n\n")
+
+    feach_files_for_specific_version(package_name, versions, "chnagelog.md")
+    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "chnagelog.md", compere_method.GOOGLE):
+        if change:
+            print(f"from: {change['from']}\nto: {change['to']}")
+            print(change["breaking changes"], end="\n\n")
+
+
+
+def main():
+    package_name = "react" #other options: express, shx
+    num_of_versions = 5
+    version = "17.0.0"
+
+    from_last_version(package_name, num_of_versions)
+    specific_version(package_name, version)
+    
+    
     
 
 if __name__ == "__main__":
