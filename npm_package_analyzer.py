@@ -280,7 +280,7 @@ def compere_md_files_breaking_changes_openai(file1, file2):
             {"role": "user", "content": prompt}]
 
 
-        return openai_call(full_msgs, model, 150)
+        return openai_call(full_msgs, model, 300)
     except Exception as e:
         print(f'Error comparing files: {e}')
         return 'Error comparing files'
@@ -298,7 +298,7 @@ def compere_md_files_updates_openai(file1, file2):
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any updates."}, 
             {"role": "user", "content": prompt}]
-        return openai_call(full_msgs, model, 150)
+        return openai_call(full_msgs, model, 300)
     except Exception as e:
         print(f'Error comparing files: {e}')
         return 'Error comparing files'
@@ -316,7 +316,7 @@ def compere_md_files_deprecations_openai(file1, file2):
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
-        return openai_call(full_msgs, model, 150)
+        return openai_call(full_msgs, model, 300)
     except Exception as e:
         print(f'Error comparing files: {e}')
         return 'Error comparing files'
@@ -384,6 +384,12 @@ def compere_files_for_breaking_changes(package_name, version1, version2, file_na
     file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
     if not file1 or not file2:
         return None
+    
+    length = len(file1) + len(file2)
+    if length > 60000:
+        print("Files are over 60000 tokens and are too large to compare")
+        return None
+
     if method == compere_method.OPENAI:
         return {
             "from" : version1, 
@@ -416,16 +422,13 @@ def compere_md_files_versions_from_last_version(package_name, num_of_versions, f
 
 
 def compere_md_files_for_breaking_changes_specific_version(package_name, versions, file_name, method):
-    previes_version = read_md_file_from_disk(package_name, versions[0], file_name)
-    current_version = read_md_file_from_disk(package_name, versions[1], file_name)
-    next_version = read_md_file_from_disk(package_name, versions[2], file_name)
-    if not current_version:
+    if not already_downloaded(package_name, versions[1], file_name):
         return []
-    if not previes_version and not next_version:
+    if not already_downloaded(package_name, versions[0], file_name) and not already_downloaded(package_name, versions[2], file_name):
         return []
-    elif not previes_version:
+    elif not already_downloaded(package_name, versions[0], file_name):
         return [compere_files_for_breaking_changes(package_name, versions[1], versions[2], file_name, method)]
-    elif not next_version:
+    elif not already_downloaded(package_name, versions[2], file_name):
         return [compere_files_for_breaking_changes(package_name, versions[0], versions[1], file_name, method)]
     else:
         return [
@@ -434,12 +437,14 @@ def compere_md_files_for_breaking_changes_specific_version(package_name, version
 
 
 def from_last_version(package_name, num_of_versions, method):
+    print("downloading readme.md and compering files for the last versions")
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
+    print("downloading changelog.md and compering files for the last versions")
     feach_files_from_last_version(package_name, num_of_versions, "changelog.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "changelog.md", method):
         if change:
@@ -450,12 +455,15 @@ def from_last_version(package_name, num_of_versions, method):
 def specific_version(package_name, version, method):
     previes_version, next_version = get_adjacent_versions(package_name, version)
     versions = [previes_version, version, next_version]
+
+    print("downloading readme.md and compering files for the specific version")
     feach_files_for_specific_version(package_name, versions, "readme.md")
     for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
+    print("downloading changelog.md and compering files for the specific version")
     feach_files_for_specific_version(package_name, versions, "changelog.md")
     for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "changelog.md", method):
         if change:

@@ -64,6 +64,7 @@ def main():
             else:
                 print("Invalid input, please try again")
 
+            print("\n")
         except (IndexError, ValueError):
             print("Invalid input, please try again")
         except KeyboardInterrupt:
