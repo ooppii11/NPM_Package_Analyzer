@@ -74,7 +74,7 @@ def get_file_npm(tarball_url, file_name):
         with open(readme_path, "r") as readme_file:
             readme_content = readme_file.read()
     else:
-        print("README.md file not found in the package.")
+        print(f"{file_name} not found in the package.")
         
  
     os.remove(tarball_path)
@@ -102,9 +102,9 @@ def get_file(package_name, version, file_name):
         version_files = package_info.get("files")
         
         if not version_files:
-            readme_file_name = None
+            package_file_name = None
         else:
-            readme_file_name = get_file_name(version_files, file_name)
+            package_file_name = get_file_name(version_files, file_name)
             
         try:
             github_url = package_info.get("repository").get("url")
@@ -113,18 +113,18 @@ def get_file(package_name, version, file_name):
             if not repo:
                 raise Exception("Repository URL not found")
             
-            if not readme_file_name:
+            if not package_file_name:
                 return run_on_posebile_file_names_github(repo, version, file_name)
             else:
-                return get_file_github(repo, version, readme_file_name)
+                return get_file_github(repo, version, package_file_name)
             
         except Exception:
             tarball_url = package_info.get("dist").get("tarball")
-            return get_file_npm(tarball_url, "README.md")
+            return get_file_npm(tarball_url, file_name)
             
  
     except requests.exceptions.RequestException as e:
-        print(f"Failed to download README file for package {package_name} at version {version}:\n {e}")
+        print(f"Failed to download {file_name} for package {package_name} at version {version}:\n {e}")
         return None
     
 def download_file(package_name, version, file_name):
@@ -132,7 +132,7 @@ def download_file(package_name, version, file_name):
     if readme:
         with open(f"{package_name}_{version}_{file_name}", "w") as f:
             f.write(readme)
-        print(f"README file for package {package_name} downloaded successfully")
+        print(f"{file_name} for package {package_name} downloaded successfully")
 
 
 def get_last_versions(package_name, num_of_versions):
@@ -256,7 +256,7 @@ def read_md_files_from_disk(package_name, version1, version2, file_name):
             file2 = f.read()
         return file1, file2
     except FileNotFoundError:
-        print(f"README file for package {package_name} at version {version1} or {version2} is missing")
+        print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
 
 def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
     try:
@@ -266,10 +266,10 @@ def compere_files_for_breaking_changes(package_name, version1, version2, file_na
         elif method == compere_method.GOOGLE:
             return {"from" : version1, "to" : version2, "changes" : compere_md_files_breaking_changes_google(file1, file2)}
     except FileNotFoundError:
-        print(f"README file for package {package_name} at version {version1} or {version2} is missing")
+        print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
 
 
-def compere_readme_versions_from_last_version(package_name, num_of_versions, method):
+def compere_md_files_versions_from_last_version(package_name, num_of_versions, file_name, method):
     if num_of_versions < 2:
         print("Number of versions must be at least 2")
         return None
@@ -280,21 +280,27 @@ def compere_readme_versions_from_last_version(package_name, num_of_versions, met
             return None
         
         for i in range(len(versions) - 1):
-            yield compere_files_for_breaking_changes(package_name, versions[i], versions[i+1], "readme", method)
+            yield compere_files_for_breaking_changes(package_name, versions[i], versions[i+1], file_name, method)
 
-        
 def main():
-    package_name = "express"
+    package_name = "react"
     """
+    express
     shx
     """
+
     num_of_versions = 5
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
-    for change in compere_readme_versions_from_last_version(package_name, num_of_versions, compere_method.OPENAI):
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme", compere_method.OPENAI):
         
         print(f"from: {change['from']}\nto: {change['to']}")
         print(change["changes"], end="\n\n")
     
+    feach_files_from_last_version(package_name, num_of_versions, "chnagelog.md")
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog", compere_method.GOOGLE):
+        
+        print(f"from: {change['from']}\nto: {change['to']}")
+        print(change["changes"], end="\n\n")
     
 
 if __name__ == "__main__":
