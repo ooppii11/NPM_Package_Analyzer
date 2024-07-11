@@ -4,7 +4,7 @@ import os
 OPTIONS = ["1. Check Package last versions for breaking changes", "2. Check Package specific version for breaking changes", "3. Update API key", "4. Exit"]
 
 def print_options():
-    for option in OPTIONS_STR:
+    for option in OPTIONS:
         print(option)
 
 

@@ -356,9 +356,19 @@ def compere_files_for_breaking_changes(package_name, version1, version2, file_na
     try:
         file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
         if method == compere_method.OPENAI:
-            return {"from" : version1, "to" : version2, "breaking changes" : compere_md_files_breaking_changes_openai(file1, file2)}
+            return {
+                "from" : version1, 
+                "to" : version2, 
+                "updates" : compere_md_files_updates_openai(file1, file2),
+                "deprecations" : compere_md_files_deprecations_openai(file1, file2),
+                "breaking changes" : compere_md_files_breaking_changes_openai(file1, file2)}
         elif method == compere_method.GOOGLE:
-            return {"from" : version1, "to" : version2, "breaking changes" : compere_md_files_breaking_changes_google(file1, file2)}
+            return {
+                "from" : version1, 
+                "to" : version2, 
+                "updates" : compere_md_files_updates_google(file1, file2),
+                "deprecations" : compere_md_files_deprecations_google(file1, file2),
+                "breaking changes" : compere_md_files_breaking_changes_google(file1, file2)}
     except FileNotFoundError:
         print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
 
