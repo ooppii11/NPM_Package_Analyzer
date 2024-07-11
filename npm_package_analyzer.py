@@ -419,31 +419,31 @@ def compere_md_files_for_breaking_changes_specific_version(package_name, version
         print(f"{file_name} file for package {package_name} at version {versions[0]} or {versions[1]} or {versions[2]} is missing")
 
 
-def from_last_version(package_name, num_of_versions):
+def from_last_version(package_name, num_of_versions, method):
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
-    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", compere_method.OPENAI):
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
     feach_files_from_last_version(package_name, num_of_versions, "chnagelog.md")
-    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog.md", compere_method.GOOGLE):
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
  
 
-def specific_version(package_name, version):
+def specific_version(package_name, version, method):
     previes_version, next_version = get_adjacent_versions(package_name, version)
     versions = [previes_version, version, next_version]
     feach_files_for_specific_version(package_name, versions, "readme.md")
-    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", compere_method.OPENAI):
+    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
     feach_files_for_specific_version(package_name, versions, "chnagelog.md")
-    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "chnagelog.md", compere_method.GOOGLE):
+    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "chnagelog.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
@@ -455,8 +455,8 @@ def main():
     num_of_versions = 5
     version = "17.0.0"
 
-    from_last_version(package_name, num_of_versions)
-    specific_version(package_name, version)
+    from_last_version(package_name, num_of_versions, compere_method.OPENAI)
+    specific_version(package_name, version, compere_method.OPENAI)
     
     
     
