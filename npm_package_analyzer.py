@@ -436,20 +436,28 @@ def compere_md_files_for_breaking_changes_specific_version(package_name, version
             compere_files_for_breaking_changes(package_name, versions[1], versions[2], file_name, method)]
 
 
+def print_changes(change):
+    print(f"from: {change['from']}\nto: {change['to']}")
+    print("updates:")
+    print(change["updates"], end="\n\n")
+    print("deprecations:")
+    print(change["deprecations"], end="\n\n")
+    print("breaking changes:")
+    print(change["breaking changes"], end="\n\n")
+
+
 def from_last_version(package_name, num_of_versions, method):
     print("downloading readme.md and compering files for the last versions")
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", method):
         if change:
-            print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["breaking changes"], end="\n\n")
+            print_changes(change)
 
     print("downloading changelog.md and compering files for the last versions")
     feach_files_from_last_version(package_name, num_of_versions, "changelog.md")
     for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "changelog.md", method):
         if change:
-            print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["breaking changes"], end="\n\n")
+            print_changes(change)
  
 
 def specific_version(package_name, version, method):
@@ -460,15 +468,13 @@ def specific_version(package_name, version, method):
     feach_files_for_specific_version(package_name, versions, "readme.md")
     for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", method):
         if change:
-            print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["breaking changes"], end="\n\n")
+            print_changes(change)
 
     print("downloading changelog.md and compering files for the specific version")
     feach_files_for_specific_version(package_name, versions, "changelog.md")
     for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "changelog.md", method):
         if change:
-            print(f"from: {change['from']}\nto: {change['to']}")
-            print(change["breaking changes"], end="\n\n")
+            print_changes(change)
 
 
 
