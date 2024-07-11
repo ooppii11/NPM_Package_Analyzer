@@ -24,24 +24,46 @@ class compere_method:
 
 def get_tag_name(repo, version):
     try:
-        tags_url = f"https://github.com/{repo}/tags"
-        response = requests.get(tags_url)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.content, 'html.parser')
-        version_pattern = version.replace('.', r'[\.\-_]?')
-        pattern = re.compile(rf'v?{version_pattern}')
-        
-        for tag in soup.find_all('a', class_='Link--primary'):
-            tag_text = tag.text.strip()
-            if pattern.match(tag_text):
-                return tag_text
-        return None
-    except Exception:
+        version_first_number = int(version.split('.')[0])
+        tag_text = ""  
+
+        while True:
+            tags_url = f"https://github.com/{repo}/tags"
+            tags_url += f"?after={tag_text}" if tag_text else ""
+            response = requests.get(tags_url)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            tags = soup.find_all('a', class_='Link--primary')
+            if not tags:
+                return None
+
+            version_pattern = version.replace('.', r'[\.\-_]?')
+            pattern = re.compile(rf'v?{version_pattern}')
+            
+            last_tag = tags[-1].text.strip()
+            last_tag_number = int(re.match(r'v?(\d+)', last_tag).group(1))
+            if last_tag_number > version_first_number:
+                tag_text = tags[-1].text.strip()
+                continue
+
+            first_tag = tags[0].text.strip()
+            first_tag_number = int(re.match(r'v?(\d+)', first_tag).group(1))
+            if first_tag_number < version_first_number:
+                return None
+
+            for tag in tags:
+                tag_text = tag.text.strip()
+                if pattern.match(tag_text):
+                    return tag_text
+
+    except Exception as e:
+        print(f"Error: {e}")  # Optionally log the error
         return None
 
 
-def get_file_github(repo, version, file_name):
-    tag = get_tag_name(repo, version)
+def get_file_github(repo, file_name, tag):
+    
 
     if not tag:
         raise Exception("Tag not found")
@@ -62,9 +84,10 @@ def generate_possible_file_names(file_name):
     
 
 def run_on_posebile_file_names_github(repo, version, file_name):
+    tag = get_tag_name(repo, version)
     for readme_name in generate_possible_file_names(file_name):
         try:
-            return get_file_github(repo, version, readme_name)
+            return get_file_github(repo, readme_name, tag)
         except Exception:
             continue
     raise Exception("Failed to download from github")
@@ -140,7 +163,8 @@ def get_file(package_name, version, file_name):
             if not package_file_name:
                 return run_on_posebile_file_names_github(repo, version, file_name)
             else:
-                return get_file_github(repo, version, package_file_name)
+                tag = get_tag_name(repo, version)
+                return get_file_github(repo, package_file_name, tag)
             
         except Exception:
             tarball_url = package_info.get("dist").get("tarball")
@@ -153,7 +177,7 @@ def get_file(package_name, version, file_name):
 
 
 def download_file(package_name, version, file_name):
-    readme = get_file(package_name, version, file_name)
+    content = get_file(package_name, version, file_name)
     cwd = os.getcwd()
     path = os.path.join(cwd, package_name.capitalize()) 
     if not os.path.exists(path):
@@ -163,10 +187,10 @@ def download_file(package_name, version, file_name):
     if not os.path.exists(path):
         os.makedirs(path)
 
-    if readme:
+    if content:
         path = os.path.join(path, f"{package_name}_{version}_{file_name}")
-        with open(path, "w") as f:
-            f.write(readme)
+        with open(path, "w", errors='ignore') as f:
+            f.write(content)
         print(f"{file_name} for package {package_name} downloaded successfully")
 
 
@@ -187,7 +211,7 @@ def get_last_versions(package_name, num_of_versions):
 
 def get_adjacent_versions(package_name, version):
     try:
-        response = requests.get(f"https://registry.npmjs.org/{package_name}/{version}")
+        response = requests.get(f"https://registry.npmjs.org/{package_name}")
         response.raise_for_status()
         package_info = response.json()
         versions = list(package_info.get("versions").keys())
@@ -347,30 +371,34 @@ def compere_md_files_deprecations_google(file1, file2):
 
 
 def read_md_file_from_disk(package_name, version, file_name):
-    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r") as f:
-        file = f.read()
-    return file
+    try:
+        with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r") as f:
+            file = f.read()
+        return file
+    except FileNotFoundError:
+        print(f"{file_name} file for package {package_name} at version {version} is missing")
+        return None
 
 
 def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
-    try:
-        file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
-        if method == compere_method.OPENAI:
-            return {
-                "from" : version1, 
-                "to" : version2, 
-                "updates" : compere_md_files_updates_openai(file1, file2),
-                "deprecations" : compere_md_files_deprecations_openai(file1, file2),
-                "breaking changes" : compere_md_files_breaking_changes_openai(file1, file2)}
-        elif method == compere_method.GOOGLE:
-            return {
-                "from" : version1, 
-                "to" : version2, 
-                "updates" : compere_md_files_updates_google(file1, file2),
-                "deprecations" : compere_md_files_deprecations_google(file1, file2),
-                "breaking changes" : compere_md_files_breaking_changes_google(file1, file2)}
-    except FileNotFoundError:
-        print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
+    file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
+    if not file1 or not file2:
+        return None
+    if method == compere_method.OPENAI:
+        return {
+            "from" : version1, 
+            "to" : version2, 
+            "updates" : compere_md_files_updates_openai(file1, file2),
+            "deprecations" : compere_md_files_deprecations_openai(file1, file2),
+            "breaking changes" : compere_md_files_breaking_changes_openai(file1, file2)}
+    elif method == compere_method.GOOGLE:
+        return {
+            "from" : version1, 
+            "to" : version2, 
+            "updates" : compere_md_files_updates_google(file1, file2),
+            "deprecations" : compere_md_files_deprecations_google(file1, file2),
+            "breaking changes" : compere_md_files_breaking_changes_google(file1, file2)}        
+    
 
 
 def compere_md_files_versions_from_last_version(package_name, num_of_versions, file_name, method):
@@ -388,45 +416,21 @@ def compere_md_files_versions_from_last_version(package_name, num_of_versions, f
 
 
 def compere_md_files_for_breaking_changes_specific_version(package_name, versions, file_name, method):
-    try:
-        previes_version = read_md_file_from_disk(package_name, versions[0], file_name)
-        current_version = read_md_file_from_disk(package_name, versions[1], file_name)
-        next_version = read_md_file_from_disk(package_name, versions[2], file_name)
-        if method == compere_method.OPENAI:
-            return [
-                {
-                    "from" : versions[0], 
-                    "to" : versions[1], 
-                    "updates" : compere_md_files_updates_openai(previes_version, current_version), 
-                    "deprecations" : compere_md_files_deprecations_openai(previes_version, current_version), 
-                    "breaking changes" : compere_md_files_breaking_changes_openai(previes_version, current_version)
-                }, 
-                {
-                    "from" : versions[1],
-                    "to" : versions[2],
-                    "updates" : compere_md_files_updates_openai(current_version, next_version),
-                    "deprecations" : compere_md_files_deprecations_openai(current_version, next_version),
-                    "breaking changes" : compere_md_files_breaking_changes_openai(current_version, next_version)
-                }]
-        elif method == compere_method.GOOGLE:
-            return [
-                {
-                    "from" : versions[0],
-                    "to" : versions[1],
-                    "updates" : compere_md_files_updates_google(previes_version, current_version),
-                    "deprecations" : compere_md_files_deprecations_google(previes_version, current_version),
-                    "breaking changes" : compere_md_files_breaking_changes_google(previes_version, current_version)
-                },
-                {
-                    "from" : versions[1],
-                    "to" : versions[2],
-                    "updates" : compere_md_files_updates_google(current_version, next_version),
-                    "deprecations" : compere_md_files_deprecations_google(current_version, next_version),
-                    "breaking changes" : compere_md_files_breaking_changes_google(current_version, next_version)
-                }]
-
-    except FileNotFoundError:
-        print(f"{file_name} file for package {package_name} at version {versions[0]} or {versions[1]} or {versions[2]} is missing")
+    previes_version = read_md_file_from_disk(package_name, versions[0], file_name)
+    current_version = read_md_file_from_disk(package_name, versions[1], file_name)
+    next_version = read_md_file_from_disk(package_name, versions[2], file_name)
+    if not current_version:
+        return []
+    if not previes_version and not next_version:
+        return []
+    elif not previes_version:
+        return [compere_files_for_breaking_changes(package_name, versions[1], versions[2], file_name, method)]
+    elif not next_version:
+        return [compere_files_for_breaking_changes(package_name, versions[0], versions[1], file_name, method)]
+    else:
+        return [
+            compere_files_for_breaking_changes(package_name, versions[0], versions[1], file_name, method),
+            compere_files_for_breaking_changes(package_name, versions[1], versions[2], file_name, method)]
 
 
 def from_last_version(package_name, num_of_versions, method):
@@ -436,8 +440,8 @@ def from_last_version(package_name, num_of_versions, method):
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
-    feach_files_from_last_version(package_name, num_of_versions, "chnagelog.md")
-    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog.md", method):
+    feach_files_from_last_version(package_name, num_of_versions, "changelog.md")
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "changelog.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
@@ -447,13 +451,13 @@ def specific_version(package_name, version, method):
     previes_version, next_version = get_adjacent_versions(package_name, version)
     versions = [previes_version, version, next_version]
     feach_files_for_specific_version(package_name, versions, "readme.md")
-    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", method):
+    for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "readme.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
 
-    feach_files_for_specific_version(package_name, versions, "chnagelog.md")
-    for change in compere_files_for_breaking_changes_specific_version(package_name, versions, "chnagelog.md", method):
+    feach_files_for_specific_version(package_name, versions, "changelog.md")
+    for change in compere_md_files_for_breaking_changes_specific_version(package_name, versions, "changelog.md", method):
         if change:
             print(f"from: {change['from']}\nto: {change['to']}")
             print(change["breaking changes"], end="\n\n")
