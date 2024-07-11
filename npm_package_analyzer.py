@@ -4,6 +4,8 @@ import tarfile
 import os
 import shutil
 import google.generativeai as genai
+from bs4 import BeautifulSoup
+import re
 
 class compere_method:
     OPENAI = "openai"
@@ -19,10 +21,30 @@ class compere_method:
     def get_methods():
         return [compere_method.OPENAI, compere_method.GOOGLE]
 
-
+def get_tag_name(repo, version):
+    try:
+        tags_url = f"https://github.com/{repo}/tags"
+        response = requests.get(tags_url)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.content, 'html.parser')
+        version_pattern = version.replace('.', r'[\.\-_]?')
+        pattern = re.compile(rf'v?{version_pattern}')
+        
+        for tag in soup.find_all('a', class_='Link--primary'):
+            tag_text = tag.text.strip()
+            if pattern.match(tag_text):
+                return tag_text
+        return None
+    except Exception:
+        return None
 
 def get_file_github(repo, version, file_name):
-    url = f"https://raw.githubusercontent.com/{repo}/{version}/{file_name}"
+    tag = get_tag_name(repo, version)
+
+    if not tag:
+        raise Exception("Tag not found")
+    
+    url = f"https://raw.githubusercontent.com/{repo}/{tag}/{file_name}"
     response = requests.get(url)
     response.raise_for_status()
     return response.text
@@ -61,25 +83,25 @@ def get_file_npm(tarball_url, file_name):
     with tarfile.open(tarball_path) as tar:
         tar.extractall(path=download_folder)
         
-    readme_path = None
+    file_path = None
     for root, dirs, files in os.walk("./tempDownload/"):
             
-            readme_file_name = get_file_name(files, file_name)
-            if readme_file_name:
-                readme_path = os.path.join(root, readme_file_name)
+            package_file_name = get_file_name(files, file_name)
+            if package_file_name:
+                file_path = os.path.join(root, package_file_name)
                 break
 
-    readme_content = None
-    if readme_path:
-        with open(readme_path, "r") as readme_file:
-            readme_content = readme_file.read()
+    content = None
+    if file_path:
+        with open(file_path, "r") as f:
+            content = f.read()
     else:
         print(f"{file_name} not found in the package.")
         
  
     os.remove(tarball_path)
     shutil.rmtree("./tempDownload/")
-    return readme_content
+    return content
 
 
 def get_file_name(package_files, file_name):
@@ -129,8 +151,18 @@ def get_file(package_name, version, file_name):
     
 def download_file(package_name, version, file_name):
     readme = get_file(package_name, version, file_name)
+    cwd = os.getcwd()
+    path = os.path.join(cwd, package_name.capitalize()) 
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    path = os.path.join(path, file_name.capitalize())
+    if not os.path.exists(path):
+        os.makedirs(path)
+
     if readme:
-        with open(f"{package_name}_{version}_{file_name}", "w") as f:
+        path = os.path.join(path, f"{package_name}_{version}_{file_name}")
+        with open(path, "w") as f:
             f.write(readme)
         print(f"{file_name} for package {package_name} downloaded successfully")
 
@@ -151,7 +183,7 @@ def get_last_versions(package_name, num_of_versions):
     
 def already_downloaded(package_name, version, file_name):
     try:
-        with open(f"{package_name}_{version}_{file_name}", "r"):
+        with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r"):
             return True
     except FileNotFoundError:
         return False
@@ -162,6 +194,7 @@ def feach_files_from_last_version(package_name, num_of_versions, file_name):
         for version in versions:
             if not already_downloaded(package_name, version, file_name):
                 download_file(package_name, version, file_name)
+                
 
 def openai_call(full_msgs, model, max_tokens):
     client = OpenAI(
@@ -249,14 +282,11 @@ def compere_md_files_breaking_changes_google(file1, file2):
         return 'Error comparing files'
 
 def read_md_files_from_disk(package_name, version1, version2, file_name):
-    try:
-        with open(f"{package_name}_{version1}_{file_name}.md", "r") as f:
-            file1 = f.read()
-        with open(f"{package_name}_{version2}_{file_name}.md", "r") as f:
-            file2 = f.read()
-        return file1, file2
-    except FileNotFoundError:
-        print(f"{file_name} file for package {package_name} at version {version1} or {version2} is missing")
+    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version1}_{file_name}", "r") as f:
+        file1 = f.read()
+    with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version2}_{file_name}", "r") as f:
+        file2 = f.read()
+    return file1, file2
 
 def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
     try:
@@ -291,16 +321,16 @@ def main():
 
     num_of_versions = 5
     feach_files_from_last_version(package_name, num_of_versions, "readme.md")
-    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme", compere_method.OPENAI):
-        
-        print(f"from: {change['from']}\nto: {change['to']}")
-        print(change["changes"], end="\n\n")
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "readme.md", compere_method.OPENAI):
+        if change:
+            print(f"from: {change['from']}\nto: {change['to']}")
+            print(change["changes"], end="\n\n")
     
     feach_files_from_last_version(package_name, num_of_versions, "chnagelog.md")
-    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog", compere_method.GOOGLE):
-        
-        print(f"from: {change['from']}\nto: {change['to']}")
-        print(change["changes"], end="\n\n")
+    for change in compere_md_files_versions_from_last_version(package_name, num_of_versions, "chnagelog.md", compere_method.GOOGLE):
+        if change:
+            print(f"from: {change['from']}\nto: {change['to']}")
+            print(change["changes"], end="\n\n")
     
 
 if __name__ == "__main__":
