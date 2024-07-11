@@ -24,8 +24,9 @@ def main():
             package_name, num_of_versions, compare_method = get_user_input()
             npm_package_analyzer.feach_readme_files(package_name, num_of_versions)
             for change in npm_package_analyzer.compere_readme_versions(package_name, num_of_versions, compare_method):
-                print(f"from: {change['from']}\nto: {change['to']}")
-                print(change["changes"], end="\n\n")
+                if change:
+                    print(f"from: {change['from']}\nto: {change['to']}")
+                    print(change["changes"], end="\n\n")
 
             stop = input("Do you want to exit? (y/n): ")
             if stop == "y":
