@@ -274,7 +274,7 @@ def check_changelog_for_breaking_changes_openai(changelog):
             f"{changelog}\n\n"
             f"Breaking changes:"
         )
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to check the changelog and identify any breaking changes."}, 
             {"role": "user", "content": prompt}]
@@ -291,7 +291,7 @@ def check_changelog_for_updates_openai(changelog):
             f"{changelog}\n\n"
             f"Updates:"
         )
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to check the changelog and identify any updates."}, 
             {"role": "user", "content": prompt}]
@@ -308,7 +308,7 @@ def check_changelog_for_deprecations_openai(changelog):
             f"{changelog}\n\n"
             f"Deprecations:"
         )
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to check the changelog and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
@@ -327,7 +327,7 @@ def compere_md_files_breaking_changes_openai(file1, file2):
             f"Breaking changes:"
         )
 
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any breaking changes."}, 
             {"role": "user", "content": prompt}]
@@ -348,7 +348,7 @@ def compere_md_files_updates_openai(file1, file2):
             f"Updates:"
         )
 
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any updates."}, 
             {"role": "user", "content": prompt}]
@@ -367,7 +367,7 @@ def compere_md_files_deprecations_openai(file1, file2):
             f"Deprecations:"
         )
 
-        model = "gpt-3.5-turbo-16k"
+        model = "gpt-3.5-turbo"
         full_msgs = [
             {"role": "system", "content": "Given the following data, your job is to compare the two files and identify any deprecations."}, 
             {"role": "user", "content": prompt}]
