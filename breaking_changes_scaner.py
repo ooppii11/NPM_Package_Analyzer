@@ -1,6 +1,7 @@
 from openai import OpenAI
 import os
 import google.generativeai as genai
+import files_featcher
 
 class compere_method:
     OPENAI = "openai"
@@ -238,18 +239,11 @@ def compere_md_files_deprecations_google(file1, file2):
         return 'Error comparing files'
 
 
-def read_md_file_from_disk(package_name, version, file_name):
-    try:
-        with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r") as f:
-            file = f.read()
-        return file
-    except FileNotFoundError:
-        print(f"{file_name} file for package {package_name} at version {version} is missing")
-        return None
+
 
 
 def compere_files_for_breaking_changes(package_name, version1, version2, file_name, method):
-    file1, file2 = read_md_file_from_disk(package_name, version1, file_name), read_md_file_from_disk(package_name, version2, file_name)
+    file1, file2 = files_featcher.read_md_file_from_disk(package_name, version1, file_name), files_featcher.read_md_file_from_disk(package_name, version2, file_name)
     if not file1 or not file2:
         return None
     
@@ -283,7 +277,7 @@ def compere_readme_files_versions_from_last_version(package_name, num_of_version
     if num_of_versions < 2:
         print("Number of versions must be at least 2")
         return None
-    versions = get_last_versions(package_name, num_of_versions)
+    versions = files_featcher.get_last_versions(package_name, num_of_versions)
     if versions:
         if len(versions) < 2:
             print(f"Package {package_name} has less than 2 versions")
@@ -294,8 +288,8 @@ def compere_readme_files_versions_from_last_version(package_name, num_of_version
 
 
 def check_changelog_for_breaking_changes_from_last_version(package_name, num_of_versions, file_name, method):
-    for version in get_last_versions(package_name, num_of_versions):
-        changelog = read_md_file_from_disk(package_name, version, file_name)
+    for version in files_featcher.get_last_versions(package_name, num_of_versions):
+        changelog = files_featcher.read_md_file_from_disk(package_name, version, file_name)
     
         if changelog:
             length = len(changelog)
@@ -322,13 +316,13 @@ def check_changelog_for_breaking_changes_from_last_version(package_name, num_of_
 
 
 def compere_readme_files_for_breaking_changes_specific_version(package_name, versions, file_name, method):
-    if not already_downloaded(package_name, versions[1], file_name):
+    if not files_featcher.already_downloaded(package_name, versions[1], file_name):
         return []
-    if not already_downloaded(package_name, versions[0], file_name) and not already_downloaded(package_name, versions[2], file_name):
+    if not files_featcher.already_downloaded(package_name, versions[0], file_name) and not files_featcher.already_downloaded(package_name, versions[2], file_name):
         return []
-    elif not already_downloaded(package_name, versions[0], file_name):
+    elif not files_featcher.already_downloaded(package_name, versions[0], file_name):
         return [compere_files_for_breaking_changes(package_name, versions[1], versions[2], file_name, method)]
-    elif not already_downloaded(package_name, versions[2], file_name):
+    elif not files_featcher.already_downloaded(package_name, versions[2], file_name):
         return [compere_files_for_breaking_changes(package_name, versions[0], versions[1], file_name, method)]
     else:
         return [
@@ -337,7 +331,7 @@ def compere_readme_files_for_breaking_changes_specific_version(package_name, ver
 
 
 def check_changelog_for_breaking_changes_specific_version(package_name, version, file_name, method):
-    changelog = read_md_file_from_disk(package_name, version, file_name)
+    changelog = files_featcher.read_md_file_from_disk(package_name, version, file_name)
     length = len(changelog)
     if not changelog:
         return None

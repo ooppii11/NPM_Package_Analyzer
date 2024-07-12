@@ -230,3 +230,13 @@ def feach_files_for_specific_version(package_name, versions, file_name):
     for version in versions:
         if not already_downloaded(package_name, version, file_name):
             download_file(package_name, version, file_name)
+
+
+def read_md_file_from_disk(package_name, version, file_name):
+    try:
+        with open(f"{package_name.capitalize()}/{file_name.capitalize()}/{package_name}_{version}_{file_name}", "r") as f:
+            file = f.read()
+        return file
+    except FileNotFoundError:
+        print(f"{file_name} file for package {package_name} at version {version} is missing")
+        return None
