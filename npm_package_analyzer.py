@@ -32,7 +32,7 @@ def from_last_version(package_name, num_of_versions, method):
             print_changes_files_compere(change)
 
     print("downloading changelog.md and checking files for the last versions")
-    files_featcher.get_file_namefeach_files_from_last_version(package_name, num_of_versions, "changelog.md")
+    files_featcher.feach_files_from_last_version(package_name, num_of_versions, "changelog.md")
     for change in bcs.check_changelog_for_breaking_changes_from_last_version(package_name, num_of_versions, "changelog.md", method):
         if change:
             print_changes_one_file_check(change)
