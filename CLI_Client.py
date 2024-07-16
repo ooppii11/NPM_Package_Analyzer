@@ -10,9 +10,9 @@ def print_options():
 
 def update_api_key():
     print("Choose a method to update the API key for: ")
-    for i, method in zip(range(len(npm_package_analyzer.compere_method.get_methods())), npm_package_analyzer.compere_method.get_methods()):
+    for i, method in zip(range(len(npm_package_analyzer.compere_method.get_methods())), npm_package_analyzer.bcs.compere_method.get_methods()):
         print(f"{i+1}. {method}")
-    compare_method = npm_package_analyzer.compere_method.get_methods()[int(input("Enter the number of the method: ")) - 1]
+    compare_method = npm_package_analyzer.bcs.compere_method.get_methods()[int(input("Enter the number of the method: ")) - 1]
     
     os.environ[f"{compare_method.upper()}_API_KEY"] = input(f"Enter the API key for {compare_method}: ")
 
@@ -22,9 +22,9 @@ def get_user_input_last():
     num_of_versions = int(input("Enter num of versions: "))
 
     print("Choose a method to compare the versions: ")
-    for i, method in zip(range(len(npm_package_analyzer.compere_method.get_methods())), npm_package_analyzer.compere_method.get_methods()):
+    for i, method in zip(range(len(npm_package_analyzer.bcs.compere_method.get_methods())), npm_package_analyzer.compere_method.get_methods()):
         print(f"{i+1}. {method}")
-    compare_method = npm_package_analyzer.compere_method.get_methods()[int(input("Enter the number of the method: ")) - 1]
+    compare_method = npm_package_analyzer.bcs.compere_method.get_methods()[int(input("Enter the number of the method: ")) - 1]
     
     if f"{compare_method.upper()}_API_KEY" not in os.environ:
         os.environ[f"{compare_method.upper()}_API_KEY"] = input(f"Enter the API key for {compare_method}: ")
